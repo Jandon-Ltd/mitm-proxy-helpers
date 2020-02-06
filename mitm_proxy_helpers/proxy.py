@@ -70,8 +70,8 @@ class Proxy(ProxyLogger):
                                                "{0}/response_replace.py".format(
                                                    self.path_to_scripts))
         self.request_latency_path = os.getenv('request_latency_script_path',
-                                               "{0}/request_latency.py".format(
-                                                   self.path_to_scripts))
+                                              "{0}/request_latency.py".format(
+                                                  self.path_to_scripts))
         self.har_dump_no_replace_path = os.getenv('har_dump_no_replace_path',
                                                   "{0}/har_dump_no_replace.py".format(
                                                       self.path_to_scripts))
