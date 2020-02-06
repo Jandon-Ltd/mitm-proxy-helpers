@@ -165,6 +165,7 @@ class Proxy(ProxyLogger):
             os.system(command)
 
     def start_proxy(self, script=None, config=None):
+        # pylint: disable=too-many-branches
         """ Start a proxy with optional script and script config """
         wait = 5
         if self.remote is True:
@@ -177,7 +178,10 @@ class Proxy(ProxyLogger):
         if not script:
             script = 'har_logging'
 
-        if script == 'har_logging':
+        if script == 'no_script':
+            self.log_output('Starting mitmdump proxy server with no script')
+            script_path = ''
+        elif script == 'har_logging':
             self.log_output('Starting mitmdump proxy server with har logging')
             script_path = self.har_dump_path
         elif script == 'blacklist':
@@ -268,10 +272,12 @@ class Proxy(ProxyLogger):
         """
         os_type = os.getenv('server_os_type', None)
         if self.remote is not True and os_type not in ['Linux']:
+            self.log_output('Cannot set iptables on non Linux hosts.')
             return
 
-        self.log_output('Setting IP forwarding and iptables rules on {} host'.format(
-            os_type))
+        self.log_output(
+            'Setting IP forwarding and iptables rules on {} host'.format(
+                os_type))
 
         command = (
             "echo '{0}' | sudo -S sysctl -w net.ipv4.ip_forward=1 && "
@@ -292,9 +298,12 @@ class Proxy(ProxyLogger):
         """
         os_type = os.getenv('server_os_type', None)
         if self.remote is not True and os_type not in ['Linux']:
+            self.log_output('Cannot unset iptables on non Linux hosts.')
             return
-        self.log_output('Unsetting IP forwarding and iptables rules on {} host'.format(
-            os_type))
+
+        self.log_output(
+            'Unsetting IP forwarding and iptables rules on {} host'.format(
+                os_type))
 
         command = (
             "echo '{0}' | sudo -S iptables -F && "
@@ -377,3 +386,32 @@ class Proxy(ProxyLogger):
             "httpProxy": self.proxy(),
             "sslProxy": self.proxy(),
         })
+
+    def bandwidth_throttle(self, up_kb, down_kb, clear=False):
+        """ Starts the bandwidth throttle with provided up and down limits in
+        KB/s.
+        Supports: Linux
+        :param clear (Boolean) - if True clear any existing bandwidth limits
+        :param up_kb (Integer) - upload speed bandwidth limit in KB/s
+        :param down_kb (Integer) - download speed bandwidth limit in KB/s
+        returns: True on success
+        """
+        os_type = os.getenv('server_os_type', None)
+        if os_type not in ['Linux']:
+            self.log_output('Cannot throttle bandwidth on non Linux hosts.')
+            return False
+
+        clear_cmd = "echo '{0}' | sudo -S /usr/bin/wondershaper -a {1} -c"
+        clear_cmd = clear_cmd.format(self.ssh_password, self.interface)
+        if clear:
+            self.ssh_command(clear_cmd, max_attempts=1)
+        else:
+            start_cmd = (
+                "echo '{0}' | sudo -S /usr/bin/wondershaper -a {1} "
+                "-u {2} -d {3}"
+            )
+            start_cmd = start_cmd.format(
+                self.ssh_password, self.interface, up_kb, down_kb)
+            self.ssh_command(clear_cmd, max_attempts=1)
+            self.ssh_command(start_cmd, max_attempts=1)
+        return True
