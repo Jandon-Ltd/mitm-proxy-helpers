@@ -29,6 +29,7 @@ class Proxy(ProxyLogger):
     ulimit_s = '1024'  # OS 'ulmit -s' value
 
     def __init__(self):
+        self.mode = os.getenv('mitm_proxy_mode', 'transparent')
         self.har_log = None
         self.host = os.getenv('mitm_server_host', os.getenv('proxy_host'))
         self.ssh_port = os.getenv('mitm_server_ssh_port', None)
@@ -164,7 +165,7 @@ class Proxy(ProxyLogger):
         else:
             os.system(command)
 
-    def start_proxy(self, script=None, config=None):
+    def start_proxy(self, script='no_script', config=None):
         # pylint: disable=too-many-branches
         """ Start a proxy with optional script and script config """
         wait = 5
@@ -205,7 +206,7 @@ class Proxy(ProxyLogger):
                             'replace script enabled')
             script_path = self.response_replace_path
         elif script == 'request_latency':
-            self.log_output('Starting mitmdump proxy server with request throttle '
+            self.log_output('Starting mitmdump proxy server with request latency '
                             'enabled ')
             script_path = self.request_latency_path
         elif script == 'har_logging_no_replace':
@@ -220,9 +221,10 @@ class Proxy(ProxyLogger):
                    "--har_path={4} --proxy_port={5} --script_path={6} "
                    .format(
                        self.path_to_scripts, self.ulimit_s, self.python3_path,
-                       self.har_dump_path, self.har_path, self.proxy_port, script_path))
+                       self.har_dump_path, self.har_path, self.proxy_port,
+                       script_path))
         if self.remote is True:
-            command = "{0} --mode=transparent".format(command)
+            command = "{0} --mode={1}".format(command, self.mode)
         command = ("{0} "
                    "--status_code={1} "
                    "--field_name={2} --field_value='{3}' "
@@ -396,15 +398,17 @@ class Proxy(ProxyLogger):
         :param down_kb (Integer) - download speed bandwidth limit in KB/s
         returns: True on success
         """
-        os_type = os.getenv('server_os_type', None)
+        os_type = os.getenv('server_os_type', 'Linux')
         if os_type not in ['Linux']:
-            self.log_output('Cannot throttle bandwidth on non Linux hosts.')
-            return False
+            error_msg = 'Cannot throttle bandwidth on non Linux hosts.'
+            self.log_output(error_msg)
+            return False, error_msg
 
         clear_cmd = "echo '{0}' | sudo -S /usr/bin/wondershaper -a {1} -c"
         clear_cmd = clear_cmd.format(self.ssh_password, self.interface)
         if clear:
             self.ssh_command(clear_cmd, max_attempts=1)
+            self.log_output('Wondershaper: limits cleared.\n')
         else:
             start_cmd = (
                 "echo '{0}' | sudo -S /usr/bin/wondershaper -a {1} "
@@ -412,6 +416,8 @@ class Proxy(ProxyLogger):
             )
             start_cmd = start_cmd.format(
                 self.ssh_password, self.interface, up_kb, down_kb)
+            # Always clear any pre-existing throttle state first
             self.ssh_command(clear_cmd, max_attempts=1)
             self.ssh_command(start_cmd, max_attempts=1)
-        return True
+            self.log_output('Wondershaper: limits cleared then set.\n')
+        return True, ''
