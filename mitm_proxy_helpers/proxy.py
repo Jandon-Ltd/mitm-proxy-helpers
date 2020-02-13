@@ -5,6 +5,7 @@ import os
 import time
 import select
 from distutils import dir_util
+
 import paramiko
 from selenium import webdriver
 
@@ -165,7 +166,7 @@ class Proxy(ProxyLogger):
         else:
             os.system(command)
 
-    def start_proxy(self, script='no_script', config=None):
+    def start_proxy(self, script=None, config=None):
         # pylint: disable=too-many-branches
         """ Start a proxy with optional script and script config """
         wait = 5
@@ -214,6 +215,9 @@ class Proxy(ProxyLogger):
             script_path = self.har_dump_no_replace_path
         else:
             raise Exception('Unknown proxy script provided.')
+
+        # Always clear any pre-existing throttle state before starting proxy
+        self.bandwidth_throttle(clear=True)
 
         fixture_path = self.fixtures_dir + config.get('fixture_file', '')
         command = ("python3 {0}/proxy_launcher.py "
@@ -389,7 +393,7 @@ class Proxy(ProxyLogger):
             "sslProxy": self.proxy(),
         })
 
-    def bandwidth_throttle(self, up_kb, down_kb, clear=False):
+    def bandwidth_throttle(self, up_kb=80000, down_kb=80000, clear=False):
         """ Starts the bandwidth throttle with provided up and down limits in
         KB/s.
         Supports: Linux
@@ -398,8 +402,11 @@ class Proxy(ProxyLogger):
         :param down_kb (Integer) - download speed bandwidth limit in KB/s
         returns: True on success
         """
-        os_type = os.getenv('server_os_type', 'Linux')
-        if os_type not in ['Linux']:
+        if not self.remote:
+            error_msg = 'Cannot throttle in non local mode'
+            self.log_output(error_msg)
+            return False, error_msg
+        if os.getenv('server_os_type', 'Linux') not in ['Linux']:
             error_msg = 'Cannot throttle bandwidth on non Linux hosts.'
             self.log_output(error_msg)
             return False, error_msg
