@@ -41,9 +41,9 @@ class MitmProxy(ProxyLogger):
                 ignore_str += ip_addresses[0].replace(r'.', r'\.') + r":80"
             else:
                 ip_addresses = list(set(ip_addresses))
-                for ip in ip_addresses[:-1]:
+                for ip_addr in ip_addresses[:-1]:
                     # All but the last IP address entry
-                    ignore_str += ip.replace(r'.', r'\.') + r":80|"
+                    ignore_str += ip_addr.replace(r'.', r'\.') + r":80|"
                 else:
                     # Last IP address entry
                     ignore_str += ip_addresses[-1].replace(r'.', r'\.') + r":80"

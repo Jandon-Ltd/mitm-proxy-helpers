@@ -5,6 +5,7 @@ import os
 import time
 import select
 from distutils import dir_util
+
 import paramiko
 from selenium import webdriver
 
@@ -29,6 +30,7 @@ class Proxy(ProxyLogger):
     ulimit_s = '1024'  # OS 'ulmit -s' value
 
     def __init__(self):
+        self.mode = os.getenv('mitm_proxy_mode', 'transparent')
         self.har_log = None
         self.host = os.getenv('mitm_server_host', os.getenv('proxy_host'))
         self.ssh_port = os.getenv('mitm_server_ssh_port', None)
@@ -165,6 +167,7 @@ class Proxy(ProxyLogger):
             os.system(command)
 
     def start_proxy(self, script=None, config=None):
+        # pylint: disable=too-many-branches
         """ Start a proxy with optional script and script config """
         wait = 5
         if self.remote is True:
@@ -177,7 +180,10 @@ class Proxy(ProxyLogger):
         if not script:
             script = 'har_logging'
 
-        if script == 'har_logging':
+        if script == 'no_script':
+            self.log_output('Starting mitmdump proxy server with no script')
+            script_path = ''
+        elif script == 'har_logging':
             self.log_output('Starting mitmdump proxy server with har logging')
             script_path = self.har_dump_path
         elif script == 'blacklist':
@@ -201,7 +207,7 @@ class Proxy(ProxyLogger):
                             'replace script enabled')
             script_path = self.response_replace_path
         elif script == 'request_latency':
-            self.log_output('Starting mitmdump proxy server with request throttle '
+            self.log_output('Starting mitmdump proxy server with request latency '
                             'enabled ')
             script_path = self.request_latency_path
         elif script == 'har_logging_no_replace':
@@ -210,15 +216,19 @@ class Proxy(ProxyLogger):
         else:
             raise Exception('Unknown proxy script provided.')
 
+        # Always clear any pre-existing throttle state before starting proxy
+        self.bandwidth_throttle(clear=True)
+
         fixture_path = self.fixtures_dir + config.get('fixture_file', '')
         command = ("python3 {0}/proxy_launcher.py "
                    "--ulimit={1} --python3_path={2} --har_dump_path={3} "
                    "--har_path={4} --proxy_port={5} --script_path={6} "
                    .format(
                        self.path_to_scripts, self.ulimit_s, self.python3_path,
-                       self.har_dump_path, self.har_path, self.proxy_port, script_path))
+                       self.har_dump_path, self.har_path, self.proxy_port,
+                       script_path))
         if self.remote is True:
-            command = "{0} --mode=transparent".format(command)
+            command = "{0} --mode={1}".format(command, self.mode)
         command = ("{0} "
                    "--status_code={1} "
                    "--field_name={2} --field_value='{3}' "
@@ -268,10 +278,12 @@ class Proxy(ProxyLogger):
         """
         os_type = os.getenv('server_os_type', None)
         if self.remote is not True and os_type not in ['Linux']:
+            self.log_output('Cannot set iptables on non Linux hosts.')
             return
 
-        self.log_output('Setting IP forwarding and iptables rules on {} host'.format(
-            os_type))
+        self.log_output(
+            'Setting IP forwarding and iptables rules on {} host'.format(
+                os_type))
 
         command = (
             "echo '{0}' | sudo -S sysctl -w net.ipv4.ip_forward=1 && "
@@ -292,9 +304,12 @@ class Proxy(ProxyLogger):
         """
         os_type = os.getenv('server_os_type', None)
         if self.remote is not True and os_type not in ['Linux']:
+            self.log_output('Cannot unset iptables on non Linux hosts.')
             return
-        self.log_output('Unsetting IP forwarding and iptables rules on {} host'.format(
-            os_type))
+
+        self.log_output(
+            'Unsetting IP forwarding and iptables rules on {} host'.format(
+                os_type))
 
         command = (
             "echo '{0}' | sudo -S iptables -F && "
@@ -377,3 +392,39 @@ class Proxy(ProxyLogger):
             "httpProxy": self.proxy(),
             "sslProxy": self.proxy(),
         })
+
+    def bandwidth_throttle(self, up_kb=80000, down_kb=80000, clear=False):
+        """ Starts the bandwidth throttle with provided up and down limits in
+        KB/s.
+        Supports: Linux
+        :param clear (Boolean) - if True clear any existing bandwidth limits
+        :param up_kb (Integer) - upload speed bandwidth limit in KB/s
+        :param down_kb (Integer) - download speed bandwidth limit in KB/s
+        returns: True on success
+        """
+        if not self.remote:
+            error_msg = 'Cannot throttle in non remote mode'
+            self.log_output(error_msg)
+            return False, error_msg
+        if os.getenv('server_os_type', 'Linux') not in ['Linux']:
+            error_msg = 'Cannot throttle bandwidth on non Linux hosts.'
+            self.log_output(error_msg)
+            return False, error_msg
+
+        clear_cmd = "echo '{0}' | sudo -S /usr/bin/wondershaper -a {1} -c"
+        clear_cmd = clear_cmd.format(self.ssh_password, self.interface)
+        if clear:
+            self.ssh_command(clear_cmd, max_attempts=1)
+            self.log_output('Wondershaper: limits cleared.\n')
+        else:
+            start_cmd = (
+                "echo '{0}' | sudo -S /usr/bin/wondershaper -a {1} "
+                "-u {2} -d {3}"
+            )
+            start_cmd = start_cmd.format(
+                self.ssh_password, self.interface, up_kb, down_kb)
+            # Always clear any pre-existing throttle state first
+            self.ssh_command(clear_cmd, max_attempts=1)
+            self.ssh_command(start_cmd, max_attempts=1)
+            self.log_output('Wondershaper: limits cleared then set.\n')
+        return True, ''
