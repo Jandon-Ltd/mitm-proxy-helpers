@@ -403,7 +403,7 @@ class Proxy(ProxyLogger):
         returns: True on success
         """
         if not self.remote:
-            error_msg = 'Cannot throttle in non local mode'
+            error_msg = 'Cannot throttle in non remote mode'
             self.log_output(error_msg)
             return False, error_msg
         if os.getenv('server_os_type', 'Linux') not in ['Linux']:
