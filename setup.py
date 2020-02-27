@@ -14,7 +14,7 @@ setup(
     include_package_data=True,
     zip_safe=True,
     install_requires=[
-        "paramiko",
+        "paramiko>=2.4.1,<2.4.3",
         "selenium"
     ],
     keywords=['MITM', 'proxy', 'helpers'],
