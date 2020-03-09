@@ -77,6 +77,9 @@ class Proxy(ProxyLogger):
         self.har_dump_no_replace_path = os.getenv('har_dump_no_replace_path',
                                                   "{0}/har_dump_no_replace.py".format(
                                                       self.path_to_scripts))
+        self.url_rewrite_path = os.getenv('url_rewrite_path',
+                                          "{0}/url_rewrite.py".format(
+                                              self.path_to_scripts))
 
         if not all([self.host, self.ssh_port, self.ssh_user,
                     self.ssh_password, self.har_path, self.python3_path,
@@ -85,7 +88,8 @@ class Proxy(ProxyLogger):
                     self.json_resp_rewrite_path,
                     self.response_replace_path,
                     self.request_latency_path,
-                    self.har_dump_no_replace_path]) and self.remote:
+                    self.har_dump_no_replace_path,
+                    self.url_rewrite_path]) and self.remote:
             raise Exception('Not all remote MITM proxy env variables were provided.')
         if not all([self.host, self.har_path, self.python3_path,
                     self.har_dump_path, self.blacklister_path,
@@ -93,7 +97,8 @@ class Proxy(ProxyLogger):
                     self.json_resp_rewrite_path,
                     self.response_replace_path,
                     self.request_latency_path,
-                    self.har_dump_no_replace_path]):
+                    self.har_dump_no_replace_path,
+                    self.url_rewrite_path]):
             raise Exception('Not all local MITM proxy env variables were provided.')
 
         if not self.har_path.endswith('.har'):
@@ -213,13 +218,17 @@ class Proxy(ProxyLogger):
         elif script == 'har_logging_no_replace':
             self.log_output('Starting mitmdump proxy server with har logging, no replace')
             script_path = self.har_dump_no_replace_path
+        elif script == 'url_rewrite':
+            self.log_output('Starting mitmdump proxy server with url rewrite script')
+            script_path = self.url_rewrite_path
         else:
             raise Exception('Unknown proxy script provided.')
 
         # Always clear any pre-existing throttle state before starting proxy
         self.bandwidth_throttle(clear=True)
 
-        fixture_path = self.fixtures_dir + config.get('fixture_file', '')
+        fixture_file = config.get('fixture_file') or ''
+        fixture_path = self.fixtures_dir + fixture_file
         command = ("python3 {0}/proxy_launcher.py "
                    "--ulimit={1} --python3_path={2} --har_dump_path={3} "
                    "--har_path={4} --proxy_port={5} --script_path={6} "
@@ -236,7 +245,8 @@ class Proxy(ProxyLogger):
                    "--fixture_path='{5}' "
                    "--latency={6} "
                    "--run_identifier='{7}' "
-                   "--ignore_hostname={8} &"
+                   "--ignore_hostname={8} "
+                   "--new_url={9} &"
                    .format(
                        command,
                        config.get('status_code', status_code),
@@ -246,7 +256,8 @@ class Proxy(ProxyLogger):
                        fixture_path,
                        config.get('latency', ''),
                        config.get('run_identifier', ''),
-                       ignore_hostname))
+                       ignore_hostname,
+                       config.get('new_url', '')))
         self.run_command(command)
         self.log_output("Waiting for {0}s after proxy start".format(wait))
         time.sleep(wait)
