@@ -65,9 +65,6 @@ class Proxy(ProxyLogger):
         self.har_blacklist_path = os.getenv('har_blacklist_script_path',
                                             "{0}/har_dump_and_blacklister.py".format(
                                                 self.path_to_scripts))
-        self.json_resp_rewrite_path = os.getenv(
-            'json_resp_rewrite_script_path',
-            "{0}/json_response_field_rewriter.py".format(self.path_to_scripts))
         self.response_replace_path = os.getenv('response_replace_script_path',
                                                "{0}/response_replace.py".format(
                                                    self.path_to_scripts))
@@ -85,7 +82,6 @@ class Proxy(ProxyLogger):
                     self.ssh_password, self.har_path, self.python3_path,
                     self.har_dump_path, self.blacklister_path,
                     self.empty_response_path,
-                    self.json_resp_rewrite_path,
                     self.response_replace_path,
                     self.request_latency_path,
                     self.har_dump_no_replace_path,
@@ -94,7 +90,6 @@ class Proxy(ProxyLogger):
         if not all([self.host, self.har_path, self.python3_path,
                     self.har_dump_path, self.blacklister_path,
                     self.empty_response_path,
-                    self.json_resp_rewrite_path,
                     self.response_replace_path,
                     self.request_latency_path,
                     self.har_dump_no_replace_path,
@@ -171,96 +166,108 @@ class Proxy(ProxyLogger):
         else:
             os.system(command)
 
+    def wait_after_launch(self):
+        """ Wait after proxy launch """
+        wait = 20 if self.remote else 5
+        self.log_output("Waiting for {0}s after proxy start".format(wait))
+        time.sleep(wait)
+
     def start_proxy(self, script=None, config=None):
         # pylint: disable=too-many-branches
         """ Start a proxy with optional script and script config """
-        wait = 5
-        if self.remote is True:
-            wait = 20
-        ignore_hostname = os.getenv('proxy_hostname_ignore', '')
-
-        config = config or {}
-        script_path = None
-        status_code = ''
         if not script:
             script = 'har_logging'
 
+        # Validate script name
+        valid_scripts = ['no_script', 'har_logging', 'blacklist',
+                         'empty_response', 'har_and_blacklist',
+                         'response_replace', 'request_latency',
+                         'har_logging_no_replace', 'url_rewrite']
+        if script not in valid_scripts:
+            raise Exception("Script '{}' is not a valid mitmproxy "
+                            "script.".format(script))
+
+        script_path = None
+        mandatory_fields = ['partial_url']
         if script == 'no_script':
-            self.log_output('Starting mitmdump proxy server with no script')
             script_path = ''
         elif script == 'har_logging':
-            self.log_output('Starting mitmdump proxy server with har logging')
             script_path = self.har_dump_path
         elif script == 'blacklist':
-            self.log_output('Starting mitmdump proxy server with blacklisting script')
             script_path = self.blacklister_path
-            status_code = '403'
+            mandatory_fields.append('status_code')
         elif script == 'empty_response':
-            self.log_output('Starting mitmdump proxy server with empty response script')
             script_path = self.empty_response_path
         elif script == 'har_and_blacklist':
-            self.log_output('Starting mitmdump proxy server with blacklisting and '
-                            'har logging script')
             script_path = self.har_blacklist_path
-            status_code = '403'
-        elif script == 'json_resp_field_rewriter':
-            self.log_output('Starting mitmdump proxy server with json response'
-                            'field rewrite script enabled')
-            script_path = self.json_resp_rewrite_path
+            mandatory_fields.append('status_code')
         elif script == 'response_replace':
-            self.log_output('Starting mitmdump proxy server with response'
-                            'replace script enabled')
             script_path = self.response_replace_path
+            mandatory_fields.append('fixture_file')
         elif script == 'request_latency':
-            self.log_output('Starting mitmdump proxy server with request latency '
-                            'enabled ')
             script_path = self.request_latency_path
+            mandatory_fields.append('latency')
         elif script == 'har_logging_no_replace':
-            self.log_output('Starting mitmdump proxy server with har logging, no replace')
             script_path = self.har_dump_no_replace_path
+            mandatory_fields.append('run_identifier')
         elif script == 'url_rewrite':
-            self.log_output('Starting mitmdump proxy server with url rewrite script')
             script_path = self.url_rewrite_path
+            mandatory_fields.append('fixture_file')
+            mandatory_fields.append('new_url')
         else:
-            raise Exception('Unknown proxy script provided.')
+            raise Exception("Unknown proxy script provided: '{}'."
+                            .format(script))
 
-        # Always clear any pre-existing throttle state before starting proxy
-        self.bandwidth_throttle(clear=True)
+        self.log_output("Starting mitmdump proxy server with script: {}"
+                        .format(script))
 
+        # Validate config file
+        config = config or {}
+        if config:
+            for field in mandatory_fields:
+                try:
+                    field = config[field]
+                except KeyError:
+                    error_msg = ("Field '{}' was not found in the mitmproxy "
+                                 "config object for script '{}'".format(
+                                     field, script))
+                    raise KeyError(error_msg)
+
+        # Build the proxy_launcher command line string
+        ignore_hostname = os.getenv('proxy_hostname_ignore', '')
         fixture_file = config.get('fixture_file') or ''
         fixture_path = self.fixtures_dir + fixture_file
         command = ("python3 {0}/proxy_launcher.py "
                    "--ulimit={1} --python3_path={2} --har_dump_path={3} "
-                   "--har_path={4} --proxy_port={5} --script_path={6} "
+                   "--har_path={4} --proxy_port={5} --script_path={6}"
                    .format(
                        self.path_to_scripts, self.ulimit_s, self.python3_path,
                        self.har_dump_path, self.har_path, self.proxy_port,
                        script_path))
         if self.remote is True:
-            command = "{0} --mode={1}".format(command, self.mode)
-        command = ("{0} "
-                   "--status_code={1} "
-                   "--field_name={2} --field_value='{3}' "
-                   "--partial_url='{4}' "
-                   "--fixture_path='{5}' "
-                   "--latency={6} "
-                   "--run_identifier='{7}' "
-                   "--ignore_hostname={8} "
-                   "--new_url={9} &"
+            command = "{command} --mode={mode}".format(
+                command=command, mode=self.mode)
+        command = ("{command} "
+                   "--status_code={status_code} "
+                   "--partial_url='{partial_url}' "
+                   "--fixture_path='{fixture_path}' "
+                   "--latency={latency} "
+                   "--run_identifier='{run_identifier}' "
+                   "--ignore_hostname={ignore_hostname} "
+                   "--new_url={new_url} &"
                    .format(
-                       command,
-                       config.get('status_code', status_code),
-                       config.get('field_name', ''),
-                       config.get('field_value', ''),
-                       config.get('partial_url', ''),
-                       fixture_path,
-                       config.get('latency', ''),
-                       config.get('run_identifier', ''),
-                       ignore_hostname,
-                       config.get('new_url', '')))
+                       command=command,
+                       status_code=config.get('status_code', ''),
+                       partial_url=config.get('partial_url', ''),
+                       fixture_path=fixture_path,
+                       latency=config.get('latency', ''),
+                       run_identifier=config.get('run_identifier', ''),
+                       ignore_hostname=ignore_hostname,
+                       new_url=config.get('new_url', '')))
+
+        self.bandwidth_throttle(clear=True)
         self.run_command(command)
-        self.log_output("Waiting for {0}s after proxy start".format(wait))
-        time.sleep(wait)
+        self.wait_after_launch()
         return self
 
     @staticmethod
