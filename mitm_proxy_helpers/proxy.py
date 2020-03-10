@@ -173,7 +173,7 @@ class Proxy(ProxyLogger):
         time.sleep(wait)
 
     def start_proxy(self, script=None, config=None):
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-statements
         """ Start a proxy with optional script and script config """
         if not script:
             script = 'har_logging'
@@ -212,7 +212,6 @@ class Proxy(ProxyLogger):
             mandatory_fields.append('run_identifier')
         elif script == 'url_rewrite':
             script_path = self.url_rewrite_path
-            mandatory_fields.append('fixture_file')
             mandatory_fields.append('new_url')
         else:
             raise Exception("Unknown proxy script provided: '{}'."
