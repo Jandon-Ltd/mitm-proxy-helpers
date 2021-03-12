@@ -57,32 +57,37 @@ class MitmProxy(ProxyLogger):
         """ Build the mitmproxy (mitmdump) command line string """
         ignore_str = MitmProxy.build_ignore_hosts(
             self.config.get('ignore_hostname', ''))
+
+        # Set mitmproxy mode
         mode_str = ''
         mode = self.config.get('mode', None)
         if mode:
             mode_str = "--mode {0} ".format(mode)
+        # Enable or disable HTTP/2
+        no_http2 = ''
+        if 'url_rewrite' in self.config.get('script_path'):
+            no_http2 = '--no-http2'
         cmd = ("ulimit -s {ulimit} & "
-               "{python3_path} /usr/local/bin/mitmdump "
+               "{python3_path} /usr/local/bin/mitmdump {no_http2} "
                "{mode_str}"
                "--listen-port={proxy_port} --showhost "
                "--set hardump='{har_path}' "
                "--set status_code='{status_code}' "
-               "--set field_name='{field_name}' "
-               "--set field_value='{field_value}' "
                "--set partial_url='{partial_url}' "
+               "--set new_url='{new_url}' "
                "--set fixture_path='{fixture_path}' "
                "--set latency={latency} "
                "--set run_identifier='{run_identifier}' "
                "{ignore_str}").format(
                    ulimit=self.config.get('ulimit', ''),
                    python3_path=self.config.get('python3_path', ''),
+                   no_http2=no_http2,
                    mode_str=mode_str,
                    proxy_port=self.config.get('proxy_port', ''),
                    har_path=self.config.get('har_path', ''),
                    status_code=self.config.get('status_code', ''),
-                   field_name=self.config.get('field_name', ''),
-                   field_value=self.config.get('field_value', ''),
                    partial_url=self.config.get('partial_url', ''),
+                   new_url=self.config.get('new_url', ''),
                    fixture_path=self.config.get('fixture_path', ''),
                    latency=self.config.get('latency', ''),
                    run_identifier=self.config.get('run_identifier', ''),
@@ -109,8 +114,8 @@ if __name__ == '__main__':
             ['ulimit=', 'python3_path=', 'har_dump_path=', 'har_path=',
              'proxy_port=', 'script_path=', 'mode=',
              'ignore_hostname=',
-             'status_code=', 'field_name=', 'field_value=',
-             'partial_url=', 'fixture_path=', 'latency=',
+             'status_code=',
+             'partial_url=', 'new_url=', 'fixture_path=', 'latency=',
              'run_identifier=', 'tls_passthrough='])
     except getopt.GetoptError as err:
         print('proxy_launcher: {}'.format(err))
