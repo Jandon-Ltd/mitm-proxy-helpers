@@ -71,8 +71,6 @@ class MitmProxy(ProxyLogger):
                "--listen-port={proxy_port} --showhost "
                "--set hardump='{har_path}' "
                "--set status_code='{status_code}' "
-               "--set field_name='{field_name}' "
-               "--set field_value='{field_value}' "
                "--set partial_url='{partial_url}' "
                "--set new_url='{new_url}' "
                "--set fixture_path='{fixture_path}' "
@@ -86,8 +84,6 @@ class MitmProxy(ProxyLogger):
                    proxy_port=self.config.get('proxy_port', ''),
                    har_path=self.config.get('har_path', ''),
                    status_code=self.config.get('status_code', ''),
-                   field_name=self.config.get('field_name', ''),
-                   field_value=self.config.get('field_value', ''),
                    partial_url=self.config.get('partial_url', ''),
                    new_url=self.config.get('new_url', ''),
                    fixture_path=self.config.get('fixture_path', ''),
@@ -114,7 +110,7 @@ if __name__ == '__main__':
             ['ulimit=', 'python3_path=', 'har_dump_path=', 'har_path=',
              'proxy_port=', 'script_path=', 'mode=',
              'ignore_hostname=',
-             'status_code=', 'field_name=', 'field_value=',
+             'status_code=',
              'partial_url=', 'new_url=', 'fixture_path=', 'latency=',
              'run_identifier='])
     except getopt.GetoptError as err:
