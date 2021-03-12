@@ -12,6 +12,8 @@ class ProxyLogger:
         self.mitm_logs = os.getenv('mitm_verbose', 'false').lower() == 'true'
 
     def log_output(self, output):
-        ''' Prints MITM logs from this library to output if mitm_verbose is set '''
+        '''
+        Prints MITM logs from this library to output if mitm_verbose is set
+        '''
         if self.mitm_logs:
             print(output)

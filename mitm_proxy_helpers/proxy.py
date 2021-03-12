@@ -23,8 +23,8 @@ class InvalidPlatformException(Exception):
 class Proxy(ProxyLogger):
     # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """
-    The Proxy Handler can start and stop mitmproxy server locally or on a server
-    and run the proxy server with different scripts (har logging,
+    The Proxy Handler can start and stop mitmproxy server locally or on a
+     server and run the proxy server with different scripts (har logging,
     blacklisting)
     """
     ulimit_s = '1024'  # OS 'ulmit -s' value
@@ -42,9 +42,11 @@ class Proxy(ProxyLogger):
         url = "http://" + self.host
         url_parts = url.split(":")
         self.proxy = url_parts[1][2:] + ":" + str(self.proxy_port)
-        self.har_path = os.getenv('mitm_har_path', '{0}/logs/har/dump.har').format(
+        self.har_path = os.getenv(
+            'mitm_har_path', '{0}/logs/har/dump.har').format(
             os.path.dirname(os.path.abspath(__file__)))
-        self.python3_path = os.getenv('mitm_python3_path', '/usr/local/bin/python3')
+        self.python3_path = os.getenv(
+            'mitm_python3_path', '/usr/local/bin/python3')
         self.path_to_scripts = "{0}/server_scripts".format(
             os.path.dirname(os.path.abspath(__file__)))
         if self.remote is True:
@@ -62,21 +64,24 @@ class Proxy(ProxyLogger):
         self.empty_response_path = os.getenv('empty_response_script_path',
                                              "{0}/empty_response.py".format(
                                                  self.path_to_scripts))
-        self.har_blacklist_path = os.getenv('har_blacklist_script_path',
-                                            "{0}/har_dump_and_blacklister.py".format(
-                                                self.path_to_scripts))
+        self.har_blacklist_path = os.getenv(
+            'har_blacklist_script_path',
+            "{0}/har_dump_and_blacklister.py".format(self.path_to_scripts))
         self.json_resp_rewrite_path = os.getenv(
             'json_resp_rewrite_script_path',
             "{0}/json_response_field_rewriter.py".format(self.path_to_scripts))
-        self.response_replace_path = os.getenv('response_replace_script_path',
-                                               "{0}/response_replace.py".format(
-                                                   self.path_to_scripts))
+        self.response_replace_path = os.getenv(
+            'response_replace_script_path',
+            "{0}/response_replace.py".format(self.path_to_scripts))
         self.request_latency_path = os.getenv('request_latency_script_path',
                                               "{0}/request_latency.py".format(
                                                   self.path_to_scripts))
-        self.har_dump_no_replace_path = os.getenv('har_dump_no_replace_path',
-                                                  "{0}/har_dump_no_replace.py".format(
-                                                      self.path_to_scripts))
+        self.har_dump_no_replace_path = os.getenv(
+            'har_dump_no_replace_path',
+            "{0}/har_dump_no_replace.py".format(self.path_to_scripts))
+        self.tls_passthrough = os.getenv('tls_passthrough',
+                                         "{0}/tls_passthrough.py".format(
+                                             self.path_to_scripts))
 
         if not all([self.host, self.ssh_port, self.ssh_user,
                     self.ssh_password, self.har_path, self.python3_path,
@@ -86,7 +91,8 @@ class Proxy(ProxyLogger):
                     self.response_replace_path,
                     self.request_latency_path,
                     self.har_dump_no_replace_path]) and self.remote:
-            raise Exception('Not all remote MITM proxy env variables were provided.')
+            raise Exception(
+                'Not all remote MITM proxy env variables were provided.')
         if not all([self.host, self.har_path, self.python3_path,
                     self.har_dump_path, self.blacklister_path,
                     self.empty_response_path,
@@ -94,7 +100,8 @@ class Proxy(ProxyLogger):
                     self.response_replace_path,
                     self.request_latency_path,
                     self.har_dump_no_replace_path]):
-            raise Exception('Not all local MITM proxy env variables were provided.')
+            raise Exception(
+                'Not all local MITM proxy env variables were provided.')
 
         if not self.har_path.endswith('.har'):
             raise InvalidPathException(
@@ -106,9 +113,10 @@ class Proxy(ProxyLogger):
 
     def har(self):
         '''
-        To retrieve the har file, we need to stop the proxy dump which writes out
-        the har, fetch the har file, load it into the har_log attribute,
-        then delete the har file once it is read and restart the proxy
+        To retrieve the har file, we need to stop the proxy dump
+        which writes out the har, fetch the har file, load it
+        into the har_log attribute, then delete the har file
+        once it is read and restart the proxy
         '''
         self.stop_proxy()
         self.har_log = self.fetch_har()
@@ -121,12 +129,15 @@ class Proxy(ProxyLogger):
         return self.proxy_port
 
     def ssh_command(self, command, max_attempts=1):
-        """ Execute arbitrary SSH commmand on a remote host, use with caution """
+        '''
+        Execute arbitrary SSH commmand on a remote host, use with caution
+        '''
         retry_wait = 2
         error_str = "SSHException. Could not SSH to {0} error: {1}"
         for i in range(max_attempts):
-            self.log_output("Trying to connect to {0} (Attempt {1}/{2})".format(
-                self.host, i + 1, max_attempts))
+            self.log_output(
+                "Trying to connect to {0} (Attempt {1}/{2})".format(
+                    self.host, i + 1, max_attempts))
             try:
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -187,15 +198,18 @@ class Proxy(ProxyLogger):
             self.log_output('Starting mitmdump proxy server with har logging')
             script_path = self.har_dump_path
         elif script == 'blacklist':
-            self.log_output('Starting mitmdump proxy server with blacklisting script')
+            self.log_output(
+                'Starting mitmdump proxy server with blacklisting script')
             script_path = self.blacklister_path
             status_code = '403'
         elif script == 'empty_response':
-            self.log_output('Starting mitmdump proxy server with empty response script')
+            self.log_output(
+                'Starting mitmdump proxy server with empty response script')
             script_path = self.empty_response_path
         elif script == 'har_and_blacklist':
-            self.log_output('Starting mitmdump proxy server with blacklisting and '
-                            'har logging script')
+            self.log_output(
+                'Starting mitmdump proxy server with blacklisting and '
+                'har logging script')
             script_path = self.har_blacklist_path
             status_code = '403'
         elif script == 'json_resp_field_rewriter':
@@ -207,11 +221,13 @@ class Proxy(ProxyLogger):
                             'replace script enabled')
             script_path = self.response_replace_path
         elif script == 'request_latency':
-            self.log_output('Starting mitmdump proxy server with request latency '
-                            'enabled ')
+            self.log_output(
+                'Starting mitmdump proxy server with request latency '
+                'enabled ')
             script_path = self.request_latency_path
         elif script == 'har_logging_no_replace':
-            self.log_output('Starting mitmdump proxy server with har logging, no replace')
+            self.log_output(
+                'Starting mitmdump proxy server with har logging, no replace')
             script_path = self.har_dump_no_replace_path
         else:
             raise Exception('Unknown proxy script provided.')
@@ -222,11 +238,12 @@ class Proxy(ProxyLogger):
         fixture_path = self.fixtures_dir + config.get('fixture_file', '')
         command = ("python3 {0}/proxy_launcher.py "
                    "--ulimit={1} --python3_path={2} --har_dump_path={3} "
-                   "--har_path={4} --proxy_port={5} --script_path={6} "
+                   "--har_path={4} --proxy_port={5} --script_path={6}"
+                   " --tls_passthrough={7} "
                    .format(
                        self.path_to_scripts, self.ulimit_s, self.python3_path,
                        self.har_dump_path, self.har_path, self.proxy_port,
-                       script_path))
+                       script_path, self.tls_passthrough))
         if self.remote is True:
             command = "{0} --mode={1}".format(command, self.mode)
         command = ("{0} "
@@ -288,11 +305,12 @@ class Proxy(ProxyLogger):
         command = (
             "echo '{0}' | sudo -S sysctl -w net.ipv4.ip_forward=1 && "
             "echo '{0}' | sudo -S sysctl -w net.ipv6.conf.all.forwarding=1 && "
-            "echo '{0}' | sudo -S sysctl -w net.ipv4.conf.all.send_redirects=0 "
-            "&& echo '{0}' | sudo -S iptables -t nat -A PREROUTING -i {1} -p "
-            "tcp --dport 80 -j REDIRECT --to-port {2} && "
-            "echo '{0}' | sudo -S ip6tables -t nat -A PREROUTING -i {1} -p tcp "
-            "--dport 80 -j REDIRECT --to-port {2}"
+            "echo '{0}' | sudo -S sysctl -w net.ipv4.conf.all.send_redirects=0"
+            " && echo '{0}' | sudo -S iptables -t nat -A PREROUTING -i {1} -p "
+            "tcp --match multiport --dports 80,443 -j REDIRECT --to-port {2} "
+            "&& echo '{0}' | sudo -S ip6tables -t nat -A PREROUTING -i {1} "
+            "-p tcp --match multiport --dports 80,443 -j REDIRECT "
+            "--to-port {2}"
         )
         self.run_command(command.format(
             self.ssh_password, self.interface, self.proxy_port))
@@ -353,7 +371,8 @@ class Proxy(ProxyLogger):
             sftp.close()
             return self.har_log
         except paramiko.ssh_exception.SSHException as err:
-            self.log_output("Could not SFTP to {0} error: {1}".format(self.host, err))
+            self.log_output(
+                "Could not SFTP to {0} error: {1}".format(self.host, err))
             return None
         except IOError as err:
             self.log_output("IOError: {}".format(err))

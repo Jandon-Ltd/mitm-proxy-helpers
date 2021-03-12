@@ -31,7 +31,8 @@ class MitmProxy(ProxyLogger):
         if not hostname:
             return ignore_str
         # Resolve hostname to a list of IP addresses
-        self.log_output('proxy_launcher: Resolving hostname: {}'.format(hostname))
+        self.log_output(
+            'proxy_launcher: Resolving hostname: {}'.format(hostname))
         ip_addresses = socket.gethostbyname_ex(hostname)[-1]
 
         # Construct the ignore hosts string
@@ -46,7 +47,8 @@ class MitmProxy(ProxyLogger):
                     ignore_str += ip_addr.replace(r'.', r'\.') + r":80|"
                 else:
                     # Last IP address entry
-                    ignore_str += ip_addresses[-1].replace(r'.', r'\.') + r":80"
+                    ignore_str += (
+                        ip_addresses[-1].replace(r'.', r'\.') + r":80")
             ignore_str += r"'"
         self.log_output('ignore-hosts value: {}'.format(ignore_str))
         return ignore_str
@@ -87,6 +89,8 @@ class MitmProxy(ProxyLogger):
                    ignore_str=ignore_str)
         if self.config.get('script_path'):
             cmd += " -s {}".format(self.config.get('script_path'))
+        if self.config.get('tls_passthrough'):
+            cmd += " -s {}".format(self.config.get('tls_passthrough'))
         cmd += " > /dev/null 2>&1 &"
         return cmd
 
@@ -107,7 +111,7 @@ if __name__ == '__main__':
              'ignore_hostname=',
              'status_code=', 'field_name=', 'field_value=',
              'partial_url=', 'fixture_path=', 'latency=',
-             'run_identifier='])
+             'run_identifier=', 'tls_passthrough='])
     except getopt.GetoptError as err:
         print('proxy_launcher: {}'.format(err))
         sys.exit(1)
