@@ -68,7 +68,7 @@ class MitmProxy(ProxyLogger):
         if 'url_rewrite' in self.config.get('script_path'):
             no_http2 = '--no-http2'
         cmd = ("ulimit -s {ulimit} & "
-               "{python3_path} /usr/local/bin/mitmdump {no_http2} "
+               "{python3_path} {mitm_dump_path} {no_http2} "
                "{mode_str}"
                "--listen-port={proxy_port} --showhost "
                "--set hardump='{har_path}' "
@@ -81,6 +81,8 @@ class MitmProxy(ProxyLogger):
                "{ignore_str}").format(
                    ulimit=self.config.get('ulimit', ''),
                    python3_path=self.config.get('python3_path', ''),
+                   mitm_dump_path=self.config.get(
+                       'mitm_dump_path', '/usr/local/bin/mitmdump'),
                    no_http2=no_http2,
                    mode_str=mode_str,
                    proxy_port=self.config.get('proxy_port', ''),
@@ -113,7 +115,7 @@ if __name__ == '__main__':
             '',
             ['ulimit=', 'python3_path=', 'har_dump_path=', 'har_path=',
              'proxy_port=', 'script_path=', 'mode=',
-             'ignore_hostname=',
+             'ignore_hostname=', 'mitm_dump_path=',
              'status_code=',
              'partial_url=', 'new_url=', 'fixture_path=', 'latency=',
              'run_identifier=', 'tls_passthrough='])

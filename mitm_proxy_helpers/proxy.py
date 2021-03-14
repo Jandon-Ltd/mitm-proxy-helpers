@@ -9,6 +9,7 @@ from distutils import dir_util
 import paramiko
 from selenium import webdriver
 
+from mitm_proxy_helpers import mitmutil
 from mitm_proxy_helpers.proxy_logger import ProxyLogger
 
 
@@ -46,7 +47,9 @@ class Proxy(ProxyLogger):
             'mitm_har_path', '{0}/logs/har/dump.har').format(
             os.path.dirname(os.path.abspath(__file__)))
         self.python3_path = os.getenv(
-            'mitm_python3_path', '/usr/local/bin/python3')
+            'mitm_python3_path', mitmutil.which('python3'))
+        self.mitm_dump_path = os.getenv(
+            'mitm_dump_path', mitmutil.which('mitmdump'))
         self.path_to_scripts = "{0}/server_scripts".format(
             os.path.dirname(os.path.abspath(__file__)))
         if self.remote is True:
@@ -245,14 +248,14 @@ class Proxy(ProxyLogger):
         ignore_hostname = os.getenv('proxy_hostname_ignore', '')
         fixture_file = config.get('fixture_file') or ''
         fixture_path = self.fixtures_dir + fixture_file
-        command = ("python3 {0}/proxy_launcher.py "
+        command = ("python {0}/proxy_launcher.py "
                    "--ulimit={1} --python3_path={2} --har_dump_path={3} "
                    "--har_path={4} --proxy_port={5} --script_path={6}"
-                   " --tls_passthrough={7} "
+                   " --mitm_dump_path={7} --tls_passthrough={8} "
                    .format(
                        self.path_to_scripts, self.ulimit_s, self.python3_path,
                        self.har_dump_path, self.har_path, self.proxy_port,
-                       script_path, self.tls_passthrough))
+                       script_path, self.mitm_dump_path, self.tls_passthrough))
         if self.remote is True:
             command = "{command} --mode={mode}".format(
                 command=command, mode=self.mode)
@@ -273,7 +276,6 @@ class Proxy(ProxyLogger):
                        run_identifier=config.get('run_identifier', ''),
                        ignore_hostname=ignore_hostname,
                        new_url=config.get('new_url', '')))
-
         self.bandwidth_throttle(clear=True)
         self.run_command(command)
         self.wait_after_launch()
