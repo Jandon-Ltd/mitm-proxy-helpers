@@ -4,22 +4,28 @@ import socket
 import sys
 import os
 import getopt
-from mitm_proxy_helpers.proxy_logger import ProxyLogger
 
 
 class InvalidPathException(Exception):
     """ Exception representing invalid path """
 
 
-class MitmProxy(ProxyLogger):
+class MitmProxy():
     """ Build a mitmproxy server command line string """
 
     def __init__(self, config):
         self.config = config
+        self.mitm_logs = os.getenv('mitm_verbose', 'false').lower() == 'true'
         if not self.config.get('har_path').endswith('.har'):
             raise InvalidPathException(
                 "Config value 'har_path' is not a valid path to a HAR file")
-        super(MitmProxy, self).__init__()
+
+    def log_output(self, output):
+        '''
+        Prints MITM logs from this library to output if mitm_verbose is set
+        '''
+        if self.mitm_logs:
+            print(output)
 
     # pylint: disable=useless-else-on-loop
     def build_ignore_hosts(self, hostname=None):

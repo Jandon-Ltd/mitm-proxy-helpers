@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='mitm-proxy-helpers',
-    version='0.0.2',
+    version='0.0.3',
     description="MITM Proxy Helpers for Direct/Transparent proxy manipulation",
     long_description=""" """,
     author='Ransom Voke Anighoro',
